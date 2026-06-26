@@ -6,13 +6,13 @@ import UniformTypeIdentifiers
 final class EditorItemImportService {
     private let fileManager = FileManager.default
     private let acceptedDropTypes = [
-        UTType.fileURL.identifier,
         UTType.url.identifier,
         UTType.plainText.identifier,
         UTType.text.identifier,
         "public.utf8-plain-text",
         "public.url-name",
-        "public.html"
+        "public.html",
+        UTType.fileURL.identifier
     ]
 
     func chooseFileSystemURLs() -> [URL]? {
@@ -74,9 +74,7 @@ final class EditorItemImportService {
         var handledAnyProvider = false
 
         for provider in providers {
-            guard let typeIdentifier = acceptedDropTypes.first(where: {
-                provider.hasItemConformingToTypeIdentifier($0)
-            }) else {
+            guard let typeIdentifier = preferredDropTypeIdentifier(for: provider) else {
                 continue
             }
 
@@ -102,6 +100,10 @@ final class EditorItemImportService {
         }
 
         return true
+    }
+
+    private func preferredDropTypeIdentifier(for provider: NSItemProvider) -> String? {
+        acceptedDropTypes.first { provider.hasItemConformingToTypeIdentifier($0) }
     }
 
     private func loadURLFromDataRepresentation(

@@ -27,8 +27,7 @@ final class FaviconService {
     }
 
     func fetchFavicon(for pageURL: URL, completion: @escaping (NSImage?) -> Void) {
-        guard let requestURL = faviconURL(for: pageURL),
-              let key = cacheKey(for: pageURL) else {
+        guard let key = cacheKey(for: pageURL) else {
             DispatchQueue.main.async {
                 completion(nil)
             }
@@ -51,18 +50,134 @@ final class FaviconService {
         pendingCallbacks[key] = [completion]
         lock.unlock()
 
-        session.dataTask(with: requestURL) { [weak self] data, response, _ in
+        loadBestFavicon(for: pageURL) { [weak self] image in
             guard let self else {
                 return
             }
 
-            let image = self.makeImage(data: data, response: response)
             if let image {
                 self.cache.setObject(image, forKey: key as NSString)
             }
 
             self.finishRequest(for: key, image: image)
+        }
+    }
+
+    private func loadBestFavicon(for pageURL: URL, completion: @escaping (NSImage?) -> Void) {
+        guard let baseURL = baseSiteURL(for: pageURL) else {
+            completion(nil)
+            return
+        }
+
+        let directCandidates = [
+            baseURL.appending(path: "favicon.ico"),
+            baseURL.appending(path: "favicon.png"),
+            baseURL.appending(path: "apple-touch-icon.png")
+        ]
+
+        loadFirstAvailableImage(from: directCandidates, index: 0) { [weak self] image in
+            guard let self else {
+                completion(image)
+                return
+            }
+
+            if let image {
+                completion(image)
+                return
+            }
+
+            self.discoverIconURLs(from: baseURL) { iconURLs in
+                self.loadFirstAvailableImage(from: iconURLs, index: 0, completion: completion)
+            }
+        }
+    }
+
+    private func loadFirstAvailableImage(
+        from urls: [URL],
+        index: Int,
+        completion: @escaping (NSImage?) -> Void
+    ) {
+        guard index < urls.count else {
+            completion(nil)
+            return
+        }
+
+        fetchImage(at: urls[index]) { [weak self] image in
+            guard let self else {
+                completion(image)
+                return
+            }
+
+            if let image {
+                completion(image)
+                return
+            }
+
+            self.loadFirstAvailableImage(from: urls, index: index + 1, completion: completion)
+        }
+    }
+
+    private func fetchImage(at url: URL, completion: @escaping (NSImage?) -> Void) {
+        session.dataTask(with: url) { [weak self] data, response, _ in
+            guard let self else {
+                completion(nil)
+                return
+            }
+
+            completion(self.makeImage(data: data, response: response))
         }.resume()
+    }
+
+    private func discoverIconURLs(from baseURL: URL, completion: @escaping ([URL]) -> Void) {
+        session.dataTask(with: baseURL) { [weak self] data, response, _ in
+            guard let self,
+                  let response = response as? HTTPURLResponse,
+                  (200..<300).contains(response.statusCode),
+                  let data,
+                  let html = String(data: data, encoding: .utf8) else {
+                completion([])
+                return
+            }
+
+            completion(self.extractIconURLs(from: html, baseURL: baseURL))
+        }.resume()
+    }
+
+    private func extractIconURLs(from html: String, baseURL: URL) -> [URL] {
+        let linkPattern = #"<link[^>]*rel=[\"'][^\"']*icon[^\"']*[\"'][^>]*>"#
+        let hrefPattern = #"href=[\"']([^\"']+)[\"']"#
+
+        guard let linkRegex = try? NSRegularExpression(pattern: linkPattern, options: [.caseInsensitive]),
+              let hrefRegex = try? NSRegularExpression(pattern: hrefPattern, options: [.caseInsensitive]) else {
+            return []
+        }
+
+        let htmlRange = NSRange(html.startIndex..<html.endIndex, in: html)
+        let linkMatches = linkRegex.matches(in: html, range: htmlRange)
+
+        var urls: [URL] = []
+        for linkMatch in linkMatches {
+            guard let linkRange = Range(linkMatch.range, in: html) else {
+                continue
+            }
+
+            let linkTag = String(html[linkRange])
+            let linkTagRange = NSRange(linkTag.startIndex..<linkTag.endIndex, in: linkTag)
+            guard let hrefMatch = hrefRegex.firstMatch(in: linkTag, range: linkTagRange),
+                  hrefMatch.numberOfRanges > 1,
+                  let hrefRange = Range(hrefMatch.range(at: 1), in: linkTag) else {
+                continue
+            }
+
+            let href = String(linkTag[hrefRange])
+            guard let resolvedURL = URL(string: href, relativeTo: baseURL)?.absoluteURL else {
+                continue
+            }
+
+            urls.append(resolvedURL)
+        }
+
+        return urls
     }
 
     private func finishRequest(for key: String, image: NSImage?) {
@@ -98,14 +213,14 @@ final class FaviconService {
         return "\(scheme)://\(host)\(portPart)"
     }
 
-    private func faviconURL(for pageURL: URL) -> URL? {
+    private func baseSiteURL(for pageURL: URL) -> URL? {
         guard let key = cacheKey(for: pageURL),
               let keyURL = URL(string: key),
               var components = URLComponents(url: keyURL, resolvingAgainstBaseURL: false) else {
             return nil
         }
 
-        components.path = "/favicon.ico"
+        components.path = "/"
         return components.url
     }
 }
