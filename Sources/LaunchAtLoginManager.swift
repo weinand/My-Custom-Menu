@@ -17,7 +17,7 @@ final class LaunchAtLoginManager {
 
     var isConfigurable: Bool {
         if #available(macOS 13.0, *) {
-            return SMAppService.mainApp.status != .notFound
+            return true
         }
 
         return false
