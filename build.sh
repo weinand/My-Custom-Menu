@@ -59,6 +59,9 @@ EOF
 echo "🔒 Setting permissions..."
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
+echo "✍️  Signing app bundle (ad-hoc)..."
+codesign --force --deep --sign - "${APP_BUNDLE}"
+
 echo "✅ Build complete!"
 echo "📍 App location: ${APP_BUNDLE}"
 echo ""
