@@ -15,6 +15,7 @@ struct AddMenuAction: Identifiable {
 struct AddRemoveControlPill: View {
     let onAdd: () -> Void
     let onRemove: () -> Void
+    var canAdd: Bool = true
     let canRemove: Bool
     let addAccessibilityLabel: String
     let removeAccessibilityLabel: String
@@ -61,7 +62,7 @@ struct AddRemoveControlPill: View {
                 glyphButton(
                     systemName: "plus",
                     action: onAdd,
-                    isEnabled: true,
+                    isEnabled: canAdd,
                     accessibilityLabel: addAccessibilityLabel,
                     horizontalOffset: -2
                 )
@@ -69,21 +70,25 @@ struct AddRemoveControlPill: View {
                 glyphButton(
                     systemName: "plus",
                     action: { isShowingAddMenu.toggle() },
-                    isEnabled: true,
+                    isEnabled: canAdd,
                     accessibilityLabel: addAccessibilityLabel,
                     horizontalOffset: -2
                 )
                 .popover(isPresented: $isShowingAddMenu, arrowEdge: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(addMenuActions) { menuAction in
-                            Button(menuAction.title) {
-                                isShowingAddMenu = false
-                                menuAction.action()
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Quick Add")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
+
+                        ForEach(Array(addMenuActions.enumerated()), id: \.element.id) { index, menuAction in
+                            if index == 0 {
+                                actionRowButton(for: menuAction)
+                                    .keyboardShortcut(.defaultAction)
+                            } else {
+                                actionRowButton(for: menuAction)
                             }
-                            .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
                         }
 
                         if let onSubmitURLText {
@@ -95,6 +100,9 @@ struct AddRemoveControlPill: View {
                                     .textFieldStyle(.roundedBorder)
                                     .frame(minWidth: 220)
                                     .focused($isURLFieldFocused)
+                                    .onTapGesture {
+                                        isURLFieldFocused = true
+                                    }
                                     .onSubmit {
                                         submitURLText(onSubmitURLText)
                                     }
@@ -102,18 +110,35 @@ struct AddRemoveControlPill: View {
                                 Button("Add") {
                                     submitURLText(onSubmitURLText)
                                 }
+                                .controlSize(.small)
+                                .buttonStyle(.bordered)
+                                .disabled(trimmedURLInput.isEmpty)
+                                .keyboardShortcut(.return, modifiers: [.command])
                             }
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(.bottom, 10)
                         }
                     }
-                    .padding(6)
-                    .frame(minWidth: 140)
+                    .padding(.vertical, 4)
+                    .frame(minWidth: 300)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .defaultFocus($isURLFieldFocused, true)
+                    .onExitCommand {
+                        isShowingAddMenu = false
+                    }
                     .onAppear {
                         urlInput = clipboardURLString() ?? ""
 
                         DispatchQueue.main.async {
                             isURLFieldFocused = true
+
+                            // Popovers can keep focus on the triggering button; retry shortly after presentation.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                                isURLFieldFocused = true
+                            }
                         }
                     }
                 }
@@ -136,15 +161,29 @@ struct AddRemoveControlPill: View {
         return trimmed
     }
 
-    private func submitURLText(_ handler: (String) -> Void) {
-        let trimmed = urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+    private func submitURLText(_ handler: @escaping (String) -> Void) {
+        guard !trimmedURLInput.isEmpty else {
             return
         }
 
+        let value = trimmedURLInput
+        runPopoverAction {
+            urlInput = ""
+            handler(value)
+        }
+    }
+
+    private func runPopoverAction(_ action: @escaping () -> Void) {
         isShowingAddMenu = false
-        urlInput = ""
-        handler(trimmed)
+
+        // Execute after dismissal so keyboard-triggered actions (Return) can still present modal UI.
+        DispatchQueue.main.async {
+            action()
+        }
+    }
+
+    private var trimmedURLInput: String {
+        urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func glyphButton(
@@ -164,11 +203,50 @@ struct AddRemoveControlPill: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
+    private func actionRowButton(for menuAction: AddMenuAction) -> some View {
+        Button {
+            runPopoverAction(menuAction.action)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.badge.plus")
+                    .font(.system(size: 12, weight: .semibold))
+
+                Text(menuAction.title)
+                    .font(.system(size: 13, weight: .medium))
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(TahoeMenuActionButtonStyle())
+        .padding(.horizontal, 8)
+    }
+
     private func glyphLabel(systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 14, weight: .semibold))
             .frame(width: 34, height: 30)
             .contentShape(Circle())
+    }
+}
+
+private struct TahoeMenuActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(
+                        configuration.isPressed
+                            ? Color.accentColor.opacity(0.18)
+                            : Color.clear
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(configuration.isPressed ? 0.18 : 0), lineWidth: 1)
+            )
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

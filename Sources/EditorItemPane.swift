@@ -8,6 +8,7 @@ struct EditorItemPane: View {
     let selectedGroupIndex: Int?
     let acceptedDropTypeIdentifiers: [String]
     @Binding var selectedItemID: UUID?
+    let canAddItem: Bool
     let canDeleteSelectedItem: Bool
     @Binding var isFileDropTargeted: Bool
     let itemsBindingForGroupIndex: (Int) -> Binding<[MenuItemDefinition]>
@@ -28,6 +29,7 @@ struct EditorItemPane: View {
                 AddRemoveControlPill(
                     onAdd: onAddItemsFromFileDialog,
                     onRemove: onDeleteSelectedItem,
+                    canAdd: canAddItem,
                     canRemove: canDeleteSelectedItem,
                     addAccessibilityLabel: "Add item",
                     removeAccessibilityLabel: "Remove item",

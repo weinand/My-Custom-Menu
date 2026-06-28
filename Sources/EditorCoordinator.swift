@@ -51,7 +51,7 @@ struct EditorCoordinator {
             return selectedItemID
         }
 
-        return items.first?.id
+        return nil
     }
 
     func addGroup(to configuration: inout MenuConfiguration, title: String = "untitled") -> UUID {

@@ -160,6 +160,7 @@ struct EditorView: View {
             selectedGroupIndex: selectedGroupIndex,
             acceptedDropTypeIdentifiers: itemImportService.supportedDropTypeIdentifiers,
             selectedItemID: $selectedItemID,
+            canAddItem: store.configuration.groups.isEmpty || selectedGroupIndex != nil,
             canDeleteSelectedItem: selectedItemIndex != nil,
             isFileDropTargeted: $isFileDropTargeted,
             itemsBindingForGroupIndex: itemsBinding(for:),
