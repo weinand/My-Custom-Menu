@@ -164,7 +164,7 @@ struct EditorView: View {
             isFileDropTargeted: $isFileDropTargeted,
             itemsBindingForGroupIndex: itemsBinding(for:),
             onAddItemsFromFileDialog: addItemsFromFileDialog,
-            onPasteURL: addItemFromPasteboardURL,
+            onAddURLFromText: addItem(fromURLText:),
             onDeleteSelectedItem: deleteSelectedItem,
             onSelectItem: selectItem,
             onDeleteItems: deleteItems(indexSet:groupIndex:),
@@ -299,13 +299,9 @@ struct EditorView: View {
         appendMenuItems(from: urls)
     }
 
-    private func addItemFromPasteboardURL() {
-        let pasteboard = NSPasteboard.general
-        let rawText = pasteboard.string(forType: .URL) ?? pasteboard.string(forType: .string)
-
-        guard let rawText,
-              let item = itemImportService.makeMenuItem(fromURLString: rawText) else {
-            errorMessage = "Clipboard does not contain a valid URL."
+    private func addItem(fromURLText text: String) {
+        guard let item = itemImportService.makeMenuItem(fromURLString: text) else {
+            errorMessage = "Please enter a valid URL."
             return
         }
 

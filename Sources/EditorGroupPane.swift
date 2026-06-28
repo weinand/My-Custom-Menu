@@ -20,16 +20,13 @@ struct EditorGroupPane: View {
                 Text("Groups")
                     .font(.headline)
 
-                Button("+") {
-                    onAddGroup()
-                }
-                .buttonStyle(.borderless)
-
-                Button("–") {
-                    onDeleteSelectedGroup()
-                }
-                .buttonStyle(.borderless)
-                .disabled(!canDeleteSelectedGroup)
+                AddRemoveControlPill(
+                    onAdd: onAddGroup,
+                    onRemove: onDeleteSelectedGroup,
+                    canRemove: canDeleteSelectedGroup,
+                    addAccessibilityLabel: "Add group",
+                    removeAccessibilityLabel: "Remove group"
+                )
 
                 Spacer()
             }

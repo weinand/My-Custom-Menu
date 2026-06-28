@@ -12,7 +12,7 @@ struct EditorItemPane: View {
     @Binding var isFileDropTargeted: Bool
     let itemsBindingForGroupIndex: (Int) -> Binding<[MenuItemDefinition]>
     let onAddItemsFromFileDialog: () -> Void
-    let onPasteURL: () -> Void
+    let onAddURLFromText: (String) -> Void
     let onDeleteSelectedItem: () -> Void
     let onSelectItem: (UUID) -> Void
     let onDeleteItems: (IndexSet, Int) -> Void
@@ -25,21 +25,17 @@ struct EditorItemPane: View {
                 Text("Items")
                     .font(.headline)
 
-                Button("+") {
-                    onAddItemsFromFileDialog()
-                }
-                .buttonStyle(.borderless)
-
-                Button("Paste URL") {
-                    onPasteURL()
-                }
-                .buttonStyle(.borderless)
-
-                Button("–") {
-                    onDeleteSelectedItem()
-                }
-                .buttonStyle(.borderless)
-                .disabled(!canDeleteSelectedItem)
+                AddRemoveControlPill(
+                    onAdd: onAddItemsFromFileDialog,
+                    onRemove: onDeleteSelectedItem,
+                    canRemove: canDeleteSelectedItem,
+                    addAccessibilityLabel: "Add item",
+                    removeAccessibilityLabel: "Remove item",
+                    addMenuActions: [
+                        AddMenuAction(id: "add-file", title: "Select File", action: onAddItemsFromFileDialog)
+                    ],
+                    onSubmitURLText: onAddURLFromText
+                )
 
                 Spacer()
             }
